@@ -1,3 +1,6 @@
+use std::mem::size_of;
+
+use dasheri::instructions::Deposit;
 use solana_program::instruction::Instruction;
 use solana_program::pubkey::Pubkey;
 use solana_program_test::*;
@@ -6,6 +9,11 @@ use solana_sdk::signer::Signer;
 use program_test::*;
 
 mod program_test;
+
+#[tokio::test]
+async fn test_create_mango_account() {
+
+}
 
 #[allow(unaligned_references)]
 #[tokio::test]
@@ -43,6 +51,58 @@ async fn test_basic() {
     context
         .solana
         .process_transaction(&instructions, Some(&[]))
+        .await
+        .unwrap();
+
+    // try to deposit to account
+    let deposit_instruction = vec![Instruction {
+        program_id: context.dasheri.program_id,
+        accounts: anchor_lang::ToAccountMetas::to_account_metas(
+            &dasheri::accounts::Deposit {
+                payer:context.solana.context.borrow_mut().payer.pubkey(),
+                receiver:todo!(),
+                system_program:todo!(), 
+                mint: todo!(), 
+                destination: todo!(), 
+                token_program: todo!(), 
+                associated_token_program: todo!(), 
+                rent: todo!() 
+            },
+            None,
+        ),
+        data: anchor_lang::InstructionData::data(&dasheri::instruction::Deposit {
+            amount: 69,
+        }),
+    }];
+
+    context
+        .solana
+        .process_transaction(&deposit_instruction, Some(&[]))
+        .await
+        .unwrap();
+
+    // TODO revisit size of this
+    let mint_account = context.create_account(size_of::<Deposit>(), &context.mango.program_id.clone()).await;
+
+    // try to init the reserve
+    let init_reserve_instruction = vec![Instruction {
+        program_id: context.dasheri.program_id,
+        accounts: anchor_lang::ToAccountMetas::to_account_metas(
+            &dasheri::accounts::Reserve {
+                token_program:spl_token::ID, 
+                authority: mint_account, 
+                vault: mint_account, 
+                // token_mint: mint_account
+            },
+            None,
+        ),
+        data: anchor_lang::InstructionData::data(&dasheri::instruction::InitMint {
+        }),
+    }];
+
+    context
+        .solana
+        .process_transaction(&init_reserve_instruction, Some(&[]))
         .await
         .unwrap();
 }

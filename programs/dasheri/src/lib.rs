@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, MintTo, Transfer};
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -10,8 +11,7 @@ use instructions::*;
 
 #[program]
 pub mod dasheri {
-    use super::*;
-
+use super::*;
     pub fn create_mango_account(
         ctx: Context<CreateMangoAccount>,
         account_num: u64,
@@ -19,7 +19,12 @@ pub mod dasheri {
         instructions::create_mango_account::handler(ctx, account_num)
     }
 
-    pub fn deposit(ctx: Context<Deposit>) -> ProgramResult {
-        instructions::deposit::handler(ctx)
+    pub fn init_mint(ctx: Context<Reserve>) -> ProgramResult {
+        instructions::init_mint::handler(ctx)
+    }
+
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+        msg!("our amount {}", amount);
+        instructions::deposit::handler(ctx, amount)
     }
 }

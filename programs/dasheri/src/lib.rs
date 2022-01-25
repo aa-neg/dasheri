@@ -23,8 +23,8 @@ use super::*;
         instructions::init_mint::handler(ctx)
     }
 
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+    pub fn deposit(ctx: Context<Deposit>, mint_bump: u8, amount: u64) -> ProgramResult {
         msg!("our amount {}", amount);
-        instructions::deposit::handler(ctx, amount)
+        instructions::deposit::handler(ctx, mint_bump, amount)
     }
 }

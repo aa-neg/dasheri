@@ -20,6 +20,7 @@ test-bpf = []
 [dependencies]
 anchor-lang = "0.20.1"
 solana-program = "^1.8.5"
+spl-associated-token-account = "1.0.3"
 anchor-spl = "0.20.1"
 spl-token = { version = "3.1.1", features = ["no-entrypoint"] }
 mango = { git = "https://github.com/blockworks-foundation/mango-v3.git", default-features=false, features = ["no-entrypoint"], branch="v3.3.0" }

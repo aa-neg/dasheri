@@ -1,12 +1,19 @@
+use std::cell::Ref;
 use std::mem::size_of;
 
+use anchor_lang::prelude::AccountInfo;
+use anchor_spl::token::TokenAccount;
+use bytemuck::from_bytes;
 use dasheri::instructions::Deposit;
 use solana_program::instruction::Instruction;
 use solana_program::pubkey::Pubkey;
 use solana_program_test::*;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 
+use spl_associated_token_account::*;
 use program_test::*;
+use spl_token::state::Mint;
 
 mod program_test;
 
@@ -53,24 +60,54 @@ async fn test_basic() {
         .process_transaction(&instructions, Some(&[]))
         .await
         .unwrap();
+    // TODO revisit size of this
+    let reciever_account = context.create_account(size_of::<Deposit>(), &context.dasheri.program_id.clone()).await;
+    // let created_mint = context.create_mint(&context.mango.program_id.clone()).await;
+    // println!("our created mint: {}", created_mint);
 
-    // try to deposit to account
+
+    // Set authority to deposit program_id
+    let (pda, _nonce) = Pubkey::find_program_address(&[b"mango"], &context.dasheri.program_id.clone());
+    
+    let mint_account = context.create_mint_account(&pda).await;
+
+    println!("our mint account {}", mint_account);
+    // let mint = context.mints
+    let token_account = context.create_token_account(&context.mango.program_id.clone(), &mint_account).await;
+
+    println!("our token account {}", token_account);
+
+    println!("our mango program id: {}", context.mango.program_id);
+    println!("our dasheri program id: {}", context.dasheri.program_id);
+
+    let (mint_pda, bump) = Pubkey::find_program_address(&[b"mango-deposit"], &context.dasheri.program_id);
+
+
+    let associated_token_account = spl_associated_token_account::get_associated_token_address(
+        &reciever_account, 
+       &mint_pda,
+    );
+
+    println!("our bump {}", bump);
+
     let deposit_instruction = vec![Instruction {
         program_id: context.dasheri.program_id,
         accounts: anchor_lang::ToAccountMetas::to_account_metas(
             &dasheri::accounts::Deposit {
-                payer:context.solana.context.borrow_mut().payer.pubkey(),
-                receiver:todo!(),
-                system_program:todo!(), 
-                mint: todo!(), 
-                destination: todo!(), 
-                token_program: todo!(), 
-                associated_token_program: todo!(), 
-                rent: todo!() 
+                mint: mint_pda,
+                destination: associated_token_account,
+                receiver: reciever_account,
+                associated_token_program: spl_associated_token_account::id(),
+                payer: context.solana.context.borrow_mut().payer.pubkey(),
+                token_program: spl_token::id(),
+                system_program: solana_sdk::system_program::id(),
+                rent: solana_sdk::sysvar::rent::id(),
             },
-            None,
+            Some(true),
         ),
         data: anchor_lang::InstructionData::data(&dasheri::instruction::Deposit {
+            mint_bump: bump,
+            // TODO adjust amount
             amount: 69,
         }),
     }];
@@ -81,28 +118,13 @@ async fn test_basic() {
         .await
         .unwrap();
 
-    // TODO revisit size of this
-    let mint_account = context.create_account(size_of::<Deposit>(), &context.mango.program_id.clone()).await;
+    let data = context.solana.context.borrow_mut().banks_client.get_account(associated_token_account).await.unwrap().unwrap();
 
-    // try to init the reserve
-    let init_reserve_instruction = vec![Instruction {
-        program_id: context.dasheri.program_id,
-        accounts: anchor_lang::ToAccountMetas::to_account_metas(
-            &dasheri::accounts::Reserve {
-                token_program:spl_token::ID, 
-                authority: mint_account, 
-                vault: mint_account, 
-                // token_mint: mint_account
-            },
-            None,
-        ),
-        data: anchor_lang::InstructionData::data(&dasheri::instruction::InitMint {
-        }),
-    }];
+    let info: AccountInfo = (&associated_token_account, &mut data).into();
 
-    context
-        .solana
-        .process_transaction(&init_reserve_instruction, Some(&[]))
-        .await
-        .unwrap();
+    let thingy = Ref::map(info.try_borrow_data().unwrap(), |data| from_bytes(data));
+
+    println!("our data: {}", thingy);
+    // let data = context.load_account::<TokenAccount>(associated_token_account);
+    // let data = TokenAccount::unpack_unchecked(&associated_token_account.data).unwrap();
 }

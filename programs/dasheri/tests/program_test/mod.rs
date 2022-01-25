@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::mem::size_of;
 use std::{str::FromStr, sync::Arc};
 
 use mango::ids::msrm_token;
@@ -253,6 +254,38 @@ impl TestContext {
             .await
             .unwrap();
 
+        return keypair.pubkey();
+    }
+
+    pub async fn create_mint_account(&mut self, authority: &Pubkey) -> Pubkey {
+        let keypair = Keypair::new();
+        let rent = self
+            .get_min_rent_for_size(spl_token::state::Account::LEN)
+            .await;
+
+        let instructions = [
+            system_instruction::create_account(
+                &self.solana.context.borrow_mut().payer.pubkey(),
+                &keypair.pubkey(),
+                rent as u64,
+                spl_token::state::Mint::LEN as u64,
+                &spl_token::id(),
+            ),
+            spl_token::instruction::initialize_mint(
+                &spl_token::id(),
+                &keypair.pubkey(),
+                authority,
+                Some(authority),
+                // TODO
+                6
+            )
+            .unwrap(),
+        ];
+
+        self.solana
+            .process_transaction(&instructions, Some(&[&keypair]))
+            .await
+            .unwrap();
         return keypair.pubkey();
     }
 

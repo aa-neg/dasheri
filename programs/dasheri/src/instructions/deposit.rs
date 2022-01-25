@@ -1,24 +1,23 @@
 use anchor_lang::prelude::*;
 use mango::instruction;
-use solana_program::program::invoke;
-use anchor_spl::token::{self, MintTo, Transfer};
 use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount},
+    token::{Mint, Token, TokenAccount, MintTo, self}, associated_token::AssociatedToken,
 };
 
 #[derive(Accounts)]
+#[instruction(mint_bump: u8, amount: u64)]
 pub struct Deposit<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        seeds = [b"mango-mint".as_ref()],
-        bump = 0,
+        seeds = [b"mango-deposit".as_ref()],
+        bump = mint_bump,
         mint::decimals = 6,
         mint::authority = mint
     )]
     pub mint: Account<'info, Mint>,
-
+    pub payer: Signer<'info>,
+    
     #[account(
         init_if_needed,
         payer = payer,
@@ -26,20 +25,44 @@ pub struct Deposit<'info> {
         associated_token::authority = receiver
     )]
     pub destination: Account<'info, TokenAccount>,
-    pub payer: Signer<'info>,
     pub receiver: AccountInfo<'info>,
-    pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+
     pub associated_token_program: Program<'info, AssociatedToken>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+// impl<'info> Deposit<'info> {
+//     fn mint_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
+//         CpiContext::new(
+//             self.token_program.clone(),
+//             MintTo {
+//                 to: self.destination.to_account_info(),
+//                 mint: self.mint.to_account_info(),
+//                 authority: self.authority.to_account_info()
+//             }
+//         )
+//     }
+// }
 
-    msg!("inside our amount: {}", amount);
-    // let owner = ctx.accounts.token_accounts.load()?;
+pub fn handler(ctx: Context<Deposit>, mint_bump: u8, amount: u64) -> ProgramResult {
 
-    // token::mint_to(ctx.accounts, amount)
+    msg!("inside our amount: {}  curent program id: {} ", amount, ctx.program_id);
+    token::mint_to(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.mint.to_account_info(),
+                to: ctx.accounts.destination.to_account_info(),
+                authority: ctx.accounts.mint.to_account_info(),
+            },
+            &[&[&"mango-deposit".as_bytes(), &[mint_bump]]],
+        ),
+        amount,
+    )?;
+
+    msg!("finished invoking?");
 
     Ok(())
 }

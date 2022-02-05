@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use mango::instruction;
 use anchor_spl::{
     token::{Mint, Token, TokenAccount, MintTo, self}, associated_token::AssociatedToken,
 };
@@ -13,10 +12,12 @@ pub struct Deposit<'info> {
         seeds = [b"mango-deposit".as_ref()],
         bump = mint_bump,
         mint::decimals = 6,
-        mint::authority = mint
+        mint::authority = mint 
     )]
     pub mint: Account<'info, Mint>,
     pub payer: Signer<'info>,
+
+    // pub mint_authority: AccountInfo<'info>,
     
     #[account(
         init_if_needed,
@@ -33,36 +34,25 @@ pub struct Deposit<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// impl<'info> Deposit<'info> {
-//     fn mint_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
-//         CpiContext::new(
-//             self.token_program.clone(),
-//             MintTo {
-//                 to: self.destination.to_account_info(),
-//                 mint: self.mint.to_account_info(),
-//                 authority: self.authority.to_account_info()
-//             }
-//         )
-//     }
-// }
+impl<'info> Deposit<'info> {
+    fn mint_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
+        CpiContext::new(
+            self.token_program.to_account_info(),
+            MintTo {
+                to: self.destination.to_account_info(),
+                mint: self.mint.to_account_info(),
+                authority: self.mint.to_account_info()
+            }
+        )
+    }
+}
 
 pub fn handler(ctx: Context<Deposit>, mint_bump: u8, amount: u64) -> ProgramResult {
-
-    msg!("inside our amount: {}  curent program id: {} ", amount, ctx.program_id);
     token::mint_to(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.mint.to_account_info(),
-                to: ctx.accounts.destination.to_account_info(),
-                authority: ctx.accounts.mint.to_account_info(),
-            },
-            &[&[&"mango-deposit".as_bytes(), &[mint_bump]]],
-        ),
+        ctx.accounts.mint_context()
+        .with_signer(&[&[&"mango-deposit".as_bytes(), &[mint_bump]]]),
         amount,
     )?;
-
-    msg!("finished invoking?");
 
     Ok(())
 }

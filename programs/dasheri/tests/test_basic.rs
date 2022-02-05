@@ -56,31 +56,15 @@ async fn test_basic() {
         .unwrap();
     // TODO revisit size of this
     let reciever_account = context.create_account(size_of::<Deposit>(), &context.dasheri.program_id.clone()).await;
-    // let created_mint = context.create_mint(&context.mango.program_id.clone()).await;
-    // println!("our created mint: {}", created_mint);
-
-
-    // Set authority to deposit program_id
-    let (pda, _nonce) = Pubkey::find_program_address(&[b"mango"], &context.dasheri.program_id.clone());
-    
-    let mint_account = context.create_mint_account(&pda).await;
-
-    // let mint = context.mints
-    let token_account = context.create_token_account(&context.mango.program_id.clone(), &mint_account).await;
-
-
-    println!("our mango program id: {}", context.mango.program_id);
-    println!("our dasheri program id: {}", context.dasheri.program_id);
 
     let (mint_pda, bump) = Pubkey::find_program_address(&[b"mango-deposit"], &context.dasheri.program_id);
-
 
     let associated_token_account = spl_associated_token_account::get_associated_token_address(
         &reciever_account, 
        &mint_pda,
     );
 
-    println!("our bump {}", bump);
+    let deposit_amount = 420;
 
     let deposit_instruction = vec![Instruction {
         program_id: context.dasheri.program_id,
@@ -99,8 +83,7 @@ async fn test_basic() {
         ),
         data: anchor_lang::InstructionData::data(&dasheri::instruction::Deposit {
             mint_bump: bump,
-            // TODO adjust amount
-            amount: 69,
+            amount: deposit_amount,
         }),
     }];
 
@@ -110,8 +93,8 @@ async fn test_basic() {
         .await
         .unwrap();
 
-    let bar = context.solana.context.borrow_mut().banks_client.get_account(associated_token_account).await.unwrap().unwrap();
-    let foo = spl_token::state::Account::unpack(&bar.data).unwrap();
+    let iou_account = context.solana.context.borrow_mut().banks_client.get_account(associated_token_account).await.unwrap().unwrap();
+    let iout_account_state = spl_token::state::Account::unpack(&iou_account.data).unwrap();
 
-    println!("hello {}", foo.amount);
+    assert!(deposit_amount.eq(&iout_account_state.amount));
 }

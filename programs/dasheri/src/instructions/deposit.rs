@@ -16,8 +16,6 @@ pub struct Deposit<'info> {
     )]
     pub mint: Account<'info, Mint>,
     pub payer: Signer<'info>,
-
-    // pub mint_authority: AccountInfo<'info>,
     
     #[account(
         init_if_needed,
@@ -48,6 +46,8 @@ impl<'info> Deposit<'info> {
 }
 
 pub fn handler(ctx: Context<Deposit>, mint_bump: u8, amount: u64) -> ProgramResult {
+    // TODO decide appropriate amount to deposit
+
     token::mint_to(
         ctx.accounts.mint_context()
         .with_signer(&[&[&"mango-deposit".as_bytes(), &[mint_bump]]]),
